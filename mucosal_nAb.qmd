@@ -1,0 +1,1491 @@
+---
+title: "SARS-CoV-2 mucosal neutralising immunity is enhanced by vaccination and infection"
+short-title: "Legacy: nAbs in VTM"
+editor: visual
+format: 
+  docx:
+    reference-doc: custom-reference-doc.docx
+    toc: false
+    number-sections: true
+    toc-title: Contents
+    fig-width: 8
+    fig-height: 9
+    execute:
+     echo: false
+     warning: false
+include-in-header: 
+  text: |
+        \usepackage{caption}
+        \usepackage{mdframed}
+metadata-files:
+  - _authors.yml
+bibliography: references.bib
+csl: the-lancet-infectious-diseases.csl
+knitr: 
+  opts_chunk:
+    dev: ragg_png
+    dpi: 300
+---
+
+```{r}
+#| echo: false
+#| label: wordstats
+#| warning: false
+#| message: false
+
+qmd.fls <- list.files(pattern = "mucosal_nAb.*.qmd$")
+qmd.fls <- qmd.fls[length(qmd.fls)]
+wordcount <- wordcountaddin::word_count(filename = qmd.fls)
+
+separate_fig <- FALSE
+```
+
+Word count `r wordcount`.
+
+```{r}
+#| echo: false
+#| label: session_prep
+#| warning: false
+#| message: false
+
+
+library(tidyverse)
+library(khroma)
+library(patchwork)
+library(gtsummary)
+library(gt)
+library(ragg)
+library(rstatix)
+library(systemfonts)
+library(ggpubr)
+library(ggtext)
+library(GGally)
+
+```
+
+```{r}
+#| echo: false
+#| label: data_prep
+#| warning: false
+#| message: false
+#| eval: true
+
+#--------------------------------------------------------------------#
+## Load data ####
+#--------------------------------------------------------------------#
+load(file = "Legacy_mucosal_nAb_PUBLIC.RData")
+
+
+## define objects contains just pre and post dose 4 results ##
+preD4 <- dat %>% filter(cohort == "pre")
+postD4 <- dat %>% filter(cohort == "post")
+```
+
+```{r}
+#| echo: false
+#| label: plot_helpers
+#| warning: false
+#| message: false
+
+#--------------------------------------------------------------------#
+## Plot helpers and presets ####
+#--------------------------------------------------------------------#
+no <- 5
+weak <- 10
+compl <- 5120
+strainOrder <- c("Ancestral", "D614G", "Alpha", "Beta", "Delta",
+                 "BA.1",
+                 "BA.2", "BA.5",
+                 "BQ.1.1", "XBB", "XBB.1.5", "XBB.1.16")
+pd <- position_dodge(width=0.4)
+
+## this has the spaces after <40 ##
+scale_y_nAb <- function(expand = c(0.05, 1.1),
+                        lims = c(no-1, compl*2),
+                        ...) {
+  scale_y_continuous(trans='log2',
+                     breaks=c(no, weak, 64, 256, 1024, compl), 
+                     labels=c("[0]", "[<40]    ", "64", "256", "1024", "[>2560]"),
+                     minor_breaks=c(32, 128, 512, 2048),
+                     name = bquote('Virus Neutralisation, '~IC[50]~''),
+                     expand = expand,
+                     limits = lims,
+                     ...) }
+
+## Adapted from khroma::colour("muted")(9)
+## And RColorBrewer::brewer.pal(8, "Dark2")
+## And RColorBrewer::brewer.pal(8, "Accent")
+manual.pal <- 
+  c("#CC6677",
+    "#332288",
+    "#DDCC77",
+    "#117733",
+    "#88CCEE",
+    "#882255",
+    "#44AA99",
+    "grey",
+    "#D95F02",
+    "#7570B3",
+    "#66A61E",
+    "#BEAED4"
+  )
+
+
+# 
+# colorblindcheck::palette_plot(manual.pal)
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: first_plot
+#--------------------------------------------------------------------#
+## PLOT::
+#--------------------------------------------------------------------#
+panel.DOSE4 <- dat %>%
+   mutate(N_res = 
+           case_when(
+    Roche_N_result == "positive" ~ "anti-N IgG<sup>+</sup>",
+    Roche_N_result == "negative" ~ "anti-N IgG<sup>-</sup>"
+  )) %>%
+  ## long format, facet labels ##
+  pivot_longer(contains("_final_nAbM"),
+               values_to = "VTM.pct",
+               names_to = "variant") %>%
+  mutate(variant = str_remove(variant,"_final_nAbM")) %>%
+  mutate(variant = factor(variant,levels= strainOrder)) %>% 
+  filter(!is.na(VTM.pct)) %>%
+  ## plot ##
+  ggplot(aes(x=cohort, y=VTM.pct, col=variant)) +
+  # geom_line(aes(group=elig_study_id),position=pd, alpha=0.4) +
+  geom_point(aes(group=elig_study_id),position=pd,
+             alpha=0.4,
+             size=2,
+             shape=20) +
+  geom_violin( fill=NA) +
+  scale_colour_manual(drop=F, values = manual.pal) +
+  facet_grid(.~variant) +
+  scale_y_continuous(#limits = c(0, 110),
+    expand = c(0.1, 1.1),
+                     breaks = c(0,25, 50, 75, 100)) +
+  stat_compare_means(
+    family = "Helvetica Neue Thin",
+    comparisons = list(c(1,2)),
+    method = "wilcox",
+    paired=F,
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,
+    label.y=101) +
+  stat_summary(geom="point", fun="median", shape = 5, col="black", size=2, stroke=1.5) +
+  theme_bw(base_family = "Arial") +
+  theme(strip.background = element_blank(),
+        axis.text.x = element_text(angle=45, hjust=1)) + 
+  labs(
+    y = "Mucosal neutralisation\n[% neutralisation by VTM]",
+    x = "Sampling relative to dose 4") +
+  geom_text(label =  "\u25BA", 
+          size=8/ggplot2::.pt,
+          vjust = 0.5,
+          aes(y=25, x = 0.5, col=NULL),
+          col="grey40",
+          show.legend = F) +
+  geom_text(label = "\u25BA", 
+            size=8/ggplot2::.pt,
+            angle=180,
+            vjust = 0.5,
+            aes(y=25, x = 2.5, col=NULL),
+            col="grey40",
+            show.legend = F)
+panel.DOSE4
+
+## Add 'n' in each violin for BA.1 ##
+panel.DOSE4.N <- panel.DOSE4$data %>%
+  filter(variant == "BA.1") %>%
+  group_by(cohort) %>%
+  summarise(n_to_parse=n(),
+           variant=variant[1])
+
+panel.DOSE4.N <- panel.DOSE4.N %>%
+  mutate(VTM.pct = -7.5) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.DOSE4 + geom_text(data = panel.DOSE4.N,
+                        aes(label=n, col=NULL), size = 8/ggplot2::.pt)
+## END - Add 'n' in each violin for BA.1 ##
+
+## Add 'n' in each violin for BA.1, with facet for N status ##
+panel.DOSE4.N.by.antiN <- panel.DOSE4$data %>%
+  filter(variant == "BA.1") %>%
+  group_by(cohort, N_res) %>%
+  summarise(n_to_parse=n(),
+           variant=variant[1])
+
+
+panel.DOSE4.N.by.antiN <- panel.DOSE4.N.by.antiN %>%
+  mutate(VTM.pct = -7.5) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.DOSE4 + 
+  facet_grid(N_res ~ variant) +
+  geom_text(data = panel.DOSE4.N.by.antiN,
+                        aes(label=n, col=NULL), size = 8/ggplot2::.pt) 
+## END - Add 'n' in each violin for BA.1 ##
+
+```
+
+```{r}
+#| fig-keep: none
+#| results: hide
+#| label: num_of_exposures
+panel.DOSE4 + facet_grid(Roche_N_result ~ variant)
+
+Pvals.panel.DOSE4 <- panel.DOSE4$data %>% group_by(Roche_N_result, variant) %>% rstatix::wilcox_test(VTM.pct ~ cohort)
+
+
+data.4exposures <- 
+  bind_rows(
+    panel.DOSE4$data %>%
+      filter(cohort == "post") %>%
+      filter(Roche_N_result=="negative") %>%
+      mutate(cohort_new = "4d-Nneg"),
+        panel.DOSE4$data %>%
+      filter(cohort == "pre") %>%
+      filter(Roche_N_result=="positive") %>%
+      mutate(cohort_new = "3d-Npos"))
+
+Pvals.4exposures <- data.4exposures %>% group_by(variant) %>% rstatix::wilcox_test(VTM.pct ~ cohort_new)
+
+paste0(Pvals.4exposures$variant, "  _P_=", Pvals.4exposures$p, collapse = "; ")
+
+##
+
+
+Pvals.RBD <- data.4exposures %>% 
+  group_by(cohort, elig_study_id) %>%
+  slice_head() %>%
+  ungroup() %>%
+  # ggplot(aes(x = cohort_new, y = mucosal_RBD_Ig_titre)) + geom_boxplot()
+  rstatix::wilcox_test(mucosal_RBD_Ig_titre ~ cohort_new)
+
+Pvals.RBD.fivenum <- data.4exposures %>% 
+  group_by(cohort, elig_study_id) %>%
+  slice_head() %>%
+  ungroup() %>%
+  group_by(cohort_new) %>%
+  summarise(fivenums = fivenum(mucosal_RBD_Ig_titre)) %>%
+  mutate(fivenums = signif(fivenums, digits = 3))
+
+Pvals.RBD.fivenum  %>% 
+  filter(cohort_new == "3d-Npos") %>% 
+  summarise(label = 
+              paste0(fivenums[3]," [", fivenums[2],"-", fivenums[4], "]")
+            ) %>% 
+  pull(label)
+
+
+RBD.4exposures <- paste0(
+  "3 doses & anti-N IgG+",
+  Pvals.RBD.fivenum  %>% 
+  filter(cohort_new == "3d-Npos") %>% 
+  summarise(label = 
+              paste0(fivenums[3]," [", fivenums[2],"-", fivenums[4], "]")
+            ) %>% pull(label), 
+  " vs 4 doses & anti-N IgG-", 
+  Pvals.RBD.fivenum  %>% 
+  filter(cohort_new == "4d-Nneg") %>% 
+  summarise(label = 
+              paste0(fivenums[3]," [", fivenums[2],"-", fivenums[4], "]")
+            ) %>% pull(label), 
+  
+   "median [IQR]; _P_=", 
+       signif(Pvals.RBD$p, digits = 2))
+
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: cors_code_for_text_callouts
+corplotwrapper <- function(dat, x, y, col=Roche_N_ever, shape=Roche_N_ever,alpha=0.4, fill=NULL) {
+  
+  dat %>%
+    ggplot(aes(x={{x}}, y={{y}}, col={{col}}, shape={{shape}}, fill={{fill}})) +
+    geom_point(alpha=alpha) + 
+    scale_y_nAb() +
+    xlim(c(0,100)) +
+  # geom_smooth(method="lm") +
+  stat_cor(method = "spearman",
+           label.y.npc = 0.1, label.x.npc = 0.1,
+           label.sep =  ",",
+           data = . %>% filter({{y}}>39 & {{y}}<2561))  +
+    stat_cor(method = "spearman",
+             aes(col=NULL, shape=NULL),label.y.npc = 1.0,
+             label.sep =  ",",
+           data = . %>% filter({{y}}>39 & {{y}}<2561)) +
+  scale_colour_manual(values = c("darkgrey","black")) +
+  scale_shape_manual(values = c(21,24)) +
+    theme_bw() +
+  theme(legend.position = "none")
+  
+}
+
+
+
+# cors <- cowplot::plot_grid( 
+cors.pre.BA1 <- preD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BA.1_final_nAbM, y=ic50_Omicron_BA1,
+                 fill=I(manual.pal[6])) +
+    labs(title = "Pre dose 4") + 
+    theme(axis.text.x = element_blank(),
+          axis.title.x =element_blank())#,
+cors.post.BA1 <-  postD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BA.1_final_nAbM, y=ic50_Omicron_BA1,
+                 fill=I(manual.pal[6])) +
+    labs(title = "Post dose 4") + 
+    theme(axis.text = element_blank(),
+          axis.title = element_blank())#,
+  ##
+cors.pre.BA2 <- preD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BA.2_final_nAbM, y=ic50_Omicron_BA2,
+                 fill=I(manual.pal[6])) +
+    labs(title = "Pre dose 4") + 
+    theme(axis.text.x = element_blank(),
+          axis.title.x =element_blank())#,
+cors.post.BA2 <-  postD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BA.2_final_nAbM, y=ic50_Omicron_BA2,
+                 fill=I(manual.pal[6])) +
+    labs(title = "Post dose 4") + 
+    theme(axis.text = element_blank(),
+          axis.title = element_blank())#,
+  ##
+
+cors.pre.BA5 <-   preD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BA.5_final_nAbM, y=ic50_Omicron_BA5,
+                 fill=I(manual.pal[8])) +
+    theme(axis.text.x = element_blank(),
+          axis.title.x =element_blank())#,
+cors.post.BA5 <-  postD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BA.5_final_nAbM, y=ic50_Omicron_BA5,
+                 fill=I(manual.pal[8])) +
+    theme(axis.text = element_blank(),
+          axis.title = element_blank())#,
+  ##
+cors.pre.BQ.1.1 <-      preD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BQ.1.1_final_nAbM, y=ic50_BQ.1.1,
+                 fill=I(manual.pal[9])) +
+    theme(axis.text.x = element_blank(),
+          axis.title.x =element_blank())#,
+ cors.post.BQ.1.1 <-       postD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=BQ.1.1_final_nAbM, y=ic50_BQ.1.1,
+                 fill=I(manual.pal[9])) +
+    theme(axis.text = element_blank(),
+          axis.title = element_blank())#,
+  ##
+cors.pre.XBB.1.5 <-        preD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=XBB.1.5_final_nAbM, y=ic50_XBB.1.5,
+                 fill=I(manual.pal[11])) +
+    labs(x = "mucosal virus neutralisation, %")#,
+cors.post.XBB.1.5 <-         postD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=XBB.1.5_final_nAbM, y=ic50_XBB.1.5,
+                 fill=I(manual.pal[11])) +
+    labs(x = "mucosal virus neutralisation, %") +
+    theme(axis.text.y = element_blank(),
+          axis.title.y = element_blank())#,
+  cors.pre.XBB.1.16 <-        preD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=XBB.1.16_final_nAbM, y=ic50_XBB.1.16,
+                 fill=I(manual.pal[11])) +
+    labs(x = "mucosal virus neutralisation, %")#,
+cors.post.XBB.1.16 <-         postD4 %>%
+  filter(!is.na(Roche_N_result)) %>%
+  corplotwrapper(., x=XBB.1.16_final_nAbM, y=ic50_XBB.1.16,
+                 fill=I(manual.pal[11])) +
+    labs(x = "mucosal virus neutralisation, %") +
+    theme(axis.text.y = element_blank(),
+          axis.title.y = element_blank())#,
+  
+  # 
+  # ncol=2, rel_widths = c(1.2,1))
+
+
+
+
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: cors_plots
+
+prepped.dat <- dat %>%
+  select(elig_study_id, cohort,Roche_N_result, contains("_final_nAbM"), 
+         starts_with("ic50") & contains("BA1"),
+         starts_with("ic50") & contains("BA2"),
+         starts_with("ic50") & contains("BA5"),
+         starts_with("ic50") & contains("BQ.1.1"),
+         starts_with("ic50") & contains("XBB.1.5"),
+         starts_with("ic50") & contains("XBB.1.16"))
+
+
+prepped.dat  <- left_join(
+  prepped.dat %>%
+  select(- contains("nAbM")) %>%
+  pivot_longer(cols = contains("ic50"),
+    values_to = "ic50", names_to = "variant") %>%
+  mutate(variant = str_remove(variant, "ic50_")) %>%
+  mutate(variant = str_remove(variant, "Omicron_")) %>%
+  mutate(variant = str_replace(variant, pattern = "BA", replacement = "BA.")),
+  
+  prepped.dat %>%
+  select(- contains("ic50")) %>%
+  pivot_longer(cols = contains("nAbM"),
+    values_to = "nAbM", names_to = "variant") %>%
+  mutate(variant = str_remove(variant, "_final_nAbM")) %>%
+  filter(variant %in% c("BA.1","BA.2", "BA.5","BQ.1.1", "XBB.1.5", "XBB.1.16"))
+)
+
+prepped.dat$variant <- factor(prepped.dat$variant,
+                              levels = strainOrder)
+
+panel.CORS.pre <- prepped.dat %>%
+  filter(cohort == "pre") %>%
+  ggplot(aes(x=nAbM, y=ic50,
+             col=Roche_N_result,
+             shape=Roche_N_result,
+             fill=variant)) +
+    geom_point(alpha=0.4) + 
+  
+   # scale_y_nAb() +
+  scale_y_nAb(lims = c(1, 5120 * 8)) +
+  stat_cor(aes(fill=NULL),
+    method = "spearman",
+           label.y.npc = 0.1, label.x.npc = 0,
+    label.sep=",",
+    size = 8/ggplot2::.pt,
+           data = . %>% filter(ic50>39 & ic50<2561))  +
+    stat_cor(method = "spearman",
+             aes(col=NULL, shape=NULL,fill=NULL),label.y.npc = 1,
+             label.sep=",",
+             size = 8/ggplot2::.pt,
+           data = . %>% filter(ic50>39 & ic50<2561)) +
+  scale_fill_manual(drop=F, values = manual.pal) +
+  scale_colour_manual(values = c("darkgrey","black")) +
+  scale_shape_manual(values = c(21,24)) +
+  facet_grid(. ~ variant) +
+    theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank()) +
+  labs(
+    x = "Mucosal neutralisation [% neutralisation by VTM]")
+  
+
+panel.CORS.post <- prepped.dat %>%
+  filter(cohort == "post") %>%
+  ggplot(aes(x=nAbM, y=ic50,
+             col=Roche_N_result,
+             shape=Roche_N_result,
+             fill=variant)) +
+    geom_point(alpha=0.4) + 
+  
+    scale_y_nAb() +
+  stat_cor(aes(fill=NULL),
+    method = "spearman",
+           label.y.npc = 0.1, label.x.npc = 0.1,
+    size = 8/ggplot2::.pt,
+           data = . %>% filter(ic50>39 & ic50<2561))  +
+    stat_cor(method = "spearman",
+             aes(col=NULL, shape=NULL,fill=NULL),label.y.npc = 1.0,
+             size = 8/ggplot2::.pt,
+           data = . %>% filter(ic50>39 & ic50<2561)) +
+  scale_fill_manual(drop=F, values = manual.pal) +
+  scale_colour_manual(values = c("darkgrey","black")) +
+  scale_shape_manual(values = c(21,24)) +
+  facet_grid(. ~ variant) +
+    theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank()) +
+  labs(
+    x = "Mucosal neutralisation [% neutralisation by VTM]")
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: total_mucosal_Ig_figs
+
+panel.mIgAvsIgG <- dat %>%
+  select(elig_study_id, 
+         cohort, 
+         contains("Ig") & contains("concent"),
+         contains("Ig") & contains("qc")) %>%
+  ## require QC passing for both IgG and IgA ##
+  filter(IgA_qc == "in range" & IgG_qc == "in range") %>%
+  pivot_longer(cols = !c(elig_study_id, 
+                         cohort, contains("qc")),
+               names_to = "mucosal_Ig",
+               names_transform = ~ str_remove(.x,"_concentration"),
+               values_to = "concentration") %>%
+  ggplot(
+    aes(x = mucosal_Ig,
+        y = log10(concentration),
+        col = mucosal_Ig,
+        group = elig_study_id)) + 
+  geom_line(position =pd, col = "grey", alpha = 0.4, linewidth = 0.25) +
+  geom_point(position = pd, 
+               size=2,
+             alpha = 0.4, shape = 20) +
+  geom_violin(aes(fill=NULL, group= NULL, col = NULL),alpha=0) +
+  scale_y_continuous(
+    
+    name = bquote(''~log[10]~'concentration, ng/mL'),
+    expand = expansion(mult = c(0.1, 0.2)) ) + 
+  # scale_color_brewer(name = "Paired", direction = -1) +
+  scale_colour_manual(values = c("#364B9A", #"#A50026"
+                                 "#364B9A")) +
+  stat_compare_means(
+    method = "wilcox",
+    paired = TRUE,
+    comparisons = list(c(1,2)),
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,
+    aes(group = NULL), 
+    data = . %>% filter(cohort == "pre")) +
+  stat_compare_means(
+    method = "wilcox",
+    paired = TRUE,
+    comparisons = list(c(1,2)),
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,
+    aes(group = NULL), 
+    data = . %>% filter(cohort == "post")) +
+  stat_summary(geom="point", fun="median", 
+                              shape = 5, 
+                              col="black", size=2, stroke=1.5,
+               aes(col=NULL, group=NULL)) +
+  facet_grid(.~cohort) +
+  labs(x=NULL) +
+  theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank())
+
+## Add numbers to plot ##
+panel.mIgAvsIgG.N <- panel.mIgAvsIgG$data %>%
+  group_by(cohort, mucosal_Ig) %>%
+  summarise(n_to_parse=n())
+
+
+panel.mIgAvsIgG.N <- panel.mIgAvsIgG.N %>%
+  ## concentration is log10 transformed in plotting ##
+  mutate(concentration = 50) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.mIgAvsIgG <- panel.mIgAvsIgG +
+geom_text(data = panel.mIgAvsIgG.N,
+          aes(label=n, col=NULL, group=NULL), size = 8/ggplot2::.pt)
+
+## END: add numbers to plot ##
+
+##
+panel.mIgAvsIgG.boosting <- panel.mIgAvsIgG$data %>%
+  ggplot(aes(x = cohort,
+             y = log10(concentration),
+             col = mucosal_Ig,
+             group = elig_study_id)) + 
+  geom_line(position =pd, col = "grey", alpha = 0.4, linewidth = 0.25) +
+  geom_point(position = pd, 
+             size=2,
+             alpha = 0.4, shape = 20) +
+  geom_violin(aes(fill=NULL, group= NULL, col = NULL),alpha=0) +
+  scale_y_continuous(
+    
+    name = bquote(''~log[10]~'concentration, ng/mL'),
+    expand = expansion(mult = c(0.1, 0.2)) ) + 
+  # scale_color_brewer(name = "Paired", direction = -1) +
+  scale_colour_manual(values = c("#364B9A", #"#A50026"
+                                 "#364B9A")) +
+  stat_compare_means(
+    method = "wilcox",
+    paired = F,
+    comparisons = list(c(1,2)),
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,
+    aes(group = NULL, col =NULL)) +
+  stat_summary(geom="point", fun="median", 
+               shape = 5, 
+               col="black", size=2, stroke=1.5,
+               aes(col=NULL, group=NULL)) +
+  facet_grid(.~mucosal_Ig)+
+  labs(x="Sampling relative to dose 4") +
+  theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank())
+
+panel.mIgAvsIgG.boosting
+
+## Add numbers to plot ##
+panel.mIgAvsIgG.boosting.N <- panel.mIgAvsIgG.boosting$data %>%
+  group_by(cohort, mucosal_Ig) %>%
+  summarise(n_to_parse=n())
+
+
+panel.mIgAvsIgG.boosting.N <- panel.mIgAvsIgG.boosting.N %>%
+  ## concentration is log10 transformed in plotting ##
+  mutate(concentration = 50) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.mIgAvsIgG.boosting <- panel.mIgAvsIgG.boosting +
+  geom_text(data = panel.mIgAvsIgG.boosting.N,
+            aes(label=n, col=NULL, group=NULL), size = 8/ggplot2::.pt)
+
+
+
+## PAIRED
+panel.mIgAvsIgG.boosting.PAIRED <- panel.mIgAvsIgG$data %>%
+  ungroup() %>%
+  group_by(elig_study_id, mucosal_Ig) %>%
+  filter(n()==2) %>%
+  ggplot(aes(x = cohort,
+             y = log10(concentration),
+             col = mucosal_Ig,
+             group = elig_study_id)) + 
+  geom_line(position =pd, col = "grey", alpha = 0.4, linewidth = 0.25) +
+  geom_point(position = pd,
+             size=2,
+             alpha = 0.4, shape = 20) +
+  geom_violin(aes(fill=NULL, group= NULL, col = NULL),alpha=0) +
+  scale_y_continuous(
+    
+    name = bquote(''~log[10]~'concentration, ng/mL'),
+    expand = expansion(mult = c(0.1, 0.2)) ) + 
+  # scale_color_brewer(name = "Paired", direction = -1) +
+  scale_colour_manual(values = c("#364B9A", "#A50026")) +
+  stat_compare_means(
+    method = "wilcox",
+    paired = TRUE,
+    comparisons = list(c(1,2)),
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,
+    aes(group = NULL, col =NULL)) +
+  stat_summary(geom="point", fun="median", 
+               shape = 5, 
+               col="black", size=2, stroke=1.5,
+               aes(col=NULL, group=NULL)) +
+  facet_grid(.~mucosal_Ig)+
+  labs(x=NULL) +
+  theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank())
+
+
+## Add numbers to plot ##
+panel.mIgAvsIgG.boosting.PAIRED.N <- panel.mIgAvsIgG.boosting.PAIRED$data %>%
+  group_by(cohort, mucosal_Ig) %>%
+  summarise(n_to_parse=n())
+
+
+panel.mIgAvsIgG.boosting.PAIRED.N <- panel.mIgAvsIgG.boosting.PAIRED.N %>%
+  ## concentration is log10 transformed in plotting ##
+  mutate(concentration = 50) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.mIgAvsIgG.boosting.PAIRED <- panel.mIgAvsIgG.boosting.PAIRED +
+  geom_text(data = panel.mIgAvsIgG.boosting.PAIRED.N,
+            aes(label=n, col=NULL, group=NULL), size = 8/ggplot2::.pt)
+
+
+
+panel.mIgAvsIgG.boosting.PAIRED
+
+## SCALED neutralisation ##
+panel.DOSE4.IgAscaled <- panel.DOSE4$data %>%
+  filter(IgA_qc == "in range") %>%
+  filter(IgA_concentration > 0) %>%
+  mutate(VTM_scaled = VTM.pct / 
+           log10(
+             ## IgA in mcg/mL ##
+             IgA_concentration / 1000)
+  ) %>%
+  ## plot ##
+  ggplot(aes(x=cohort, y=VTM_scaled, col=variant)) +
+  # geom_line(aes(group=elig_study_id),position=pd, alpha=0.4) +
+  geom_point(aes(group=elig_study_id),
+             position=pd,
+             alpha=0.4,
+             size=2,
+             shape=20) +
+  geom_violin( fill=NA) +
+  scale_colour_manual(drop=FALSE, values = manual.pal) +
+  facet_grid(.~variant) +
+  scale_y_continuous(
+    trans = "log10",
+    name = bquote('Scaled\nmucosal neutralisation'),
+    expand = expansion(mult = c(0.1, 0.2)) ) +
+  annotation_logticks(sides = "l", outside = FALSE,
+                      short = unit(.5,"mm"),
+                      mid = unit(1,"mm"),
+                      long = unit(2,"mm")) +
+  stat_compare_means(
+    family = "Helvetica Neue Thin",
+    comparisons = list(c(1,2)),
+    method = "wilcox",
+    paired=F,
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01) +
+  stat_summary(geom="point", fun="median", shape = 5, col="black", size=2, stroke=1.5) +
+  theme_bw(base_family = "Arial") +
+  theme(strip.background = element_blank(),
+        axis.text.x = element_text(angle=45, hjust=1)) + 
+  labs(
+    x = "Sampling relative to dose 4")
+
+
+panel.DOSE4.IgAscaled
+
+## add n ##
+panel.DOSE4.IgAscaled.N <- panel.DOSE4.IgAscaled$data %>%
+  filter(variant == "BA.1") %>%
+  group_by(cohort, variant) %>%
+  summarise(n_to_parse=n()) %>%
+  ## concentration is log10 transformed in plotting ##
+  mutate(VTM_scaled = 0.5) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.DOSE4.IgAscaled <- panel.DOSE4.IgAscaled +
+  geom_text(data = panel.DOSE4.IgAscaled.N,
+            aes(label=n, col=NULL, group=NULL), size = 8/ggplot2::.pt)
+## end add n ##
+
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: total_mucosal_RBD_figs
+
+panel.RBD <- dat %>%
+   mutate(N_res = 
+           case_when(
+    Roche_N_result == "positive" ~ "anti-N IgG<sup>+</sup>",
+    Roche_N_result == "negative" ~ "anti-N IgG<sup>-</sup>"
+  )) %>%
+  select(elig_study_id, cohort, 
+         mucosal_RBD_Ig_titre, N_res, Roche_N_result) %>%
+  ggplot(
+    aes(x = cohort,
+        y = log10(mucosal_RBD_Ig_titre),
+        group = elig_study_id,
+        # shape = Roche_N_result,
+        # col = Roche_N_result)
+        )
+    ) + 
+  # geom_line(position =pd, col = "grey", alpha = 0.4, linewidth = 0.25) +
+  geom_point(position = pd, shape = 20,
+             size=2,
+             alpha = 0.4, col = "#364B9A") +
+    # scale_colour_manual(values = c("grey50","black")) +
+  # scale_shape_manual(values = c(21,24)) +
+  geom_violin(aes(fill=NULL, group= NULL, col = NULL),alpha=0) +
+  scale_y_continuous(
+    
+    name = bquote('\n'~log[10]~'[anti-RBD Ig]'),
+    expand = expansion(mult = c(0.2, 0.2)) ) + 
+  # scale_color_brewer(name = "Paired", direction = -1) +
+  # scale_colour_manual(values = c("#364B9A", "#A50026")) +
+  stat_compare_means(
+    method = "wilcox",
+    paired = FALSE,
+    comparisons = list(c(1,2)),
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,  data = .%>% filter(Roche_N_result == "positive")) +
+    stat_compare_means(
+    method = "wilcox",
+    paired = FALSE,
+    comparisons = list(c(1,2)),
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,  data = .%>% filter(Roche_N_result == "negative")) +
+  stat_summary(geom="point", fun="median", 
+               shape = 5, 
+               col="black", size=2, stroke=1.5,
+               aes(col=NULL, group=NULL)) +
+  labs(x="Sampling relative to dose 4") +
+  facet_grid(.~N_res) +
+  theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+        strip.text.x = ggtext::element_markdown())
+
+## Add N to plot ##
+panel.RBD.N <- panel.RBD$data %>%
+  filter(!is.na(log10(mucosal_RBD_Ig_titre))) %>%
+  group_by(N_res, Roche_N_result, cohort) %>%
+  tally() %>%
+  mutate(label = paste0("n=", n)) %>%
+  mutate(mucosal_RBD_Ig_titre = 10^-0.75)
+  
+panel.RBD <- panel.RBD + geom_text(data = panel.RBD.N,
+                        aes(label=label, 
+                            col=NULL, 
+                            group=NULL), size = 8/ggplot2::.pt, show.legend = F)
+
+
+### ---- ####
+panel.RBDvsIg <- dat %>%
+  select(elig_study_id, cohort, 
+         contains("Ig") & contains("concent"),
+         mucosal_RBD_Ig_titre,
+         contains("Ig") & contains("qc")) %>%
+  ## require QC passing for both IgG and IgA ##
+  filter(IgA_qc == "in range" & IgG_qc == "in range") %>%
+  pivot_longer(cols = !c(elig_study_id, cohort, 
+                         mucosal_RBD_Ig_titre,
+                         contains("qc")),
+               names_to = "mucosal_Ig",
+               names_transform = ~ str_remove(.x,"_concentration"),
+               values_to = "concentration") %>%
+  ggplot(
+    aes(y = log10(mucosal_RBD_Ig_titre),
+        x = log10(concentration),
+        col = mucosal_Ig)) + 
+  geom_point(
+             size=2,
+             alpha = 0.4, shape = 20) +
+  scale_x_continuous(
+    name = bquote(''~log[10]~'[IgA or IgG], ng/mL'),
+    expand = expansion(mult = c(0.1, 0.2)) ) + 
+  scale_y_continuous(
+    name = bquote(''~log[10]~'RBD Ig concentration'),
+    expand = expansion(mult = c(0.1, 0.2)) ) + 
+  # scale_color_brewer(name = "Paired", direction = -1) +
+  
+  scale_colour_manual(values = c("#364B9A", #"#A50026",
+                                 "#364B9A")) +
+  geom_smooth(method = "lm", se = FALSE) +
+  stat_cor(method = "spearman", label.y.npc = "top") +
+  facet_grid(.~cohort) +
+  labs(x=NULL) +
+  theme_bw() +
+  theme(legend.position = "none",
+        strip.background = element_blank())
+
+panel.RBDvsIg
+
+
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: R2R_figs_contd
+
+
+## SCALED PAIRED neutralisation ##
+panel.DOSE4.IgAscaledPAIRED <- panel.DOSE4$data %>%
+  filter(IgA_qc == "in range") %>%
+  filter(IgA_concentration > 0) %>%
+  group_by(elig_study_id) %>%
+  filter(n() == 2*6) %>%
+  mutate(VTM_scaled = VTM.pct / 
+           log10(
+             ## IgA in mcg/mL ##
+             IgA_concentration / 1000)
+  ) %>%
+  ## plot ##
+  ggplot(aes(x=cohort, y=VTM_scaled, col=variant)) +
+  # geom_line(aes(group=elig_study_id),position=pd, alpha=0.4) +
+  geom_point(aes(group=elig_study_id),
+             position=pd,
+             alpha=0.4,
+             size=2,
+             shape=20) +
+  geom_violin( fill=NA) +
+  scale_colour_manual(drop=FALSE, values = manual.pal) +
+  facet_grid(.~variant) +
+  scale_y_continuous(
+    trans = "log10",
+    name = bquote('Scaled\nmucosal neutralisation'),
+    expand = expansion(mult = c(0.1, 0.2)) ) +
+  annotation_logticks(sides = "l", outside = FALSE,
+                      short = unit(.5,"mm"),
+                      mid = unit(1,"mm"),
+                      long = unit(2,"mm")) +
+  stat_compare_means(
+    family = "Helvetica Neue Thin",
+    comparisons = list(c(1,2)),
+    method = "wilcox",
+    paired=TRUE,
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01) +
+  stat_summary(geom="point", fun="median", shape = 5, col="black", size=2, stroke=1.5) +
+  theme_bw(base_family = "Arial") +
+  theme(strip.background = element_blank(),
+        axis.text.x = element_text(angle=45, hjust=1)) + 
+  labs(
+    x = "Sampling relative to dose 4")
+
+## add n ##
+panel.DOSE4.IgAscaledPAIRED.N <- panel.DOSE4.IgAscaledPAIRED$data %>%
+  filter(variant == "BA.1") %>%
+  group_by(cohort, variant) %>%
+  summarise(n_to_parse=n()) %>%
+  ## concentration is log10 transformed in plotting ##
+  mutate(VTM_scaled = 0.5) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.DOSE4.IgAscaledPAIRED <- panel.DOSE4.IgAscaledPAIRED +
+  geom_text(data = panel.DOSE4.IgAscaledPAIRED.N,
+            aes(label=n, col=NULL, group=NULL), size = 8/ggplot2::.pt)
+## end add n ##
+
+
+```
+
+```{r}
+#| fig-keep: "none"
+#| label: nAbM-vs-RBD-plot
+
+panel.nAbMvsRBD <- dat %>%
+  # mutate(VTM_scaled = BA.1_final_nAbM /
+  #          log10(
+  #            ## IgA in mcg/mL ##
+  #            IgA_concentration / 1000)) %>%
+  select(
+    cohort,
+    Roche_N_result,
+    mucosal_RBD_Ig_titre,
+    contains("final_nAbM"),
+         # VTM_scaled
+  ) %>%
+  pivot_longer(cols = contains("nAbM"),
+               names_to = "variant",
+               values_to = "VTM.pct",
+               names_transform =  ~ str_remove(.x, "_final_nAbM")) %>%
+  filter(! variant %in% c("Ancestral", "Delta") )%>%
+  mutate(variant = factor(variant,  levels = strainOrder)) %>%
+  mutate(cohort = paste(cohort, "dose 4")) %>%
+  mutate(cohort = factor(cohort, levels = c("pre dose 4", "post dose 4"))) %>%
+  ggplot(aes(x = log10(mucosal_RBD_Ig_titre), y = VTM.pct, fill = variant, 
+             shape = Roche_N_result, col = Roche_N_result)) + 
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm", se = FALSE, aes(fill = NULL, col=NULL),
+              col = "black",
+              linetype= 1,
+              linewidth = 0.75,
+              data = . %>% filter(Roche_N_result == "negative")) +
+    geom_smooth(method = "lm", se = FALSE, aes(fill = NULL, col=NULL),
+              col = "black",
+              linetype= 4,
+              linewidth = 0.75,
+              data = . %>% filter(Roche_N_result == "positive")) +
+  scale_fill_manual(drop=FALSE, values = manual.pal) +
+  scale_colour_manual(values = c("grey50","black")) +
+  scale_shape_manual(values = c(21,24)) +
+  scale_y_continuous(
+  name= "Mucosal neutralisation\n[% neutralisation by VTM]",
+  expand = c(0.1, 1.1),
+  breaks = c(0,25, 50, 75, 100)) +
+  stat_cor(method = "spearman", 
+           size = 8/ggplot2::.pt,
+           aes(fill = NULL, col = Roche_N_result),
+           label.y = rev(c(110, -10))) + 
+  geom_text(label =  "\u25BA", 
+          size=8/ggplot2::.pt,
+          vjust = 0.5,
+          aes(y=25, x = -0.2, col=NULL),
+          col="grey40",
+          show.legend = F) +
+  geom_text(label = "\u25BA", 
+            size=8/ggplot2::.pt,
+            angle=180,
+            vjust = 0.5,
+            aes(y=25, x = 3, col=NULL),
+            col="grey40",
+            show.legend = F) +
+  facet_grid(cohort~variant) +
+  labs(x = bquote(''~log[10]~'[anti-Ancestral RBD Ig]')) +
+    theme_bw() + 
+  theme(legend.position = "none",
+        strip.background = element_blank(),
+        strip.text.y = element_text(angle = 0))
+```
+
+{{< pagebreak >}}
+
+# Main text {.unnumbered .unlisted}
+
+```{r}
+#| label: text-callouts
+#| fig-keep: none
+#| results: hide
+
+whole.study.n <- dat %>% group_by(elig_study_id) %>% slice_head() %>% nrow()
+
+vocs.tested <- panel.DOSE4$data %>%
+  group_by(variant) %>% 
+  tally() %>% 
+  pull(variant) %>% 
+  c(.)
+
+pp <- Pvals.panel.DOSE4 %>% 
+  mutate(printout = paste0("_P_=",signif(p, digits = 2)))
+
+cors.P.BA1 <- cors.pre.BA1$data %>%
+  filter(ic50_Omicron_BA1>39 & ic50_Omicron_BA1<2561) %>%
+  rstatix::cor_test(data = ., vars2 ="ic50_Omicron_BA1",vars ="BA.1_final_nAbM", method = "spearman") %>%
+  mutate(p = paste0("_P_=", format(p,digits = 2, nsmall=4))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+#  mutate(p = str_replace(p, "x10superscript^-0", "x10superscript^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p))
+
+
+cors.P.BA2 <- cors.pre.BA2$data %>%
+  filter(ic50_Omicron_BA2>39 & ic50_Omicron_BA2<2561) %>%
+  rstatix::cor_test(data = ., vars2 ="ic50_Omicron_BA2",vars ="BA.2_final_nAbM", method = "spearman") %>%
+  mutate(p = paste0("_P_=", format(p,digits = 2, nsmall=4))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+#  mutate(p = str_replace(p, "x10superscript^-0", "x10superscript^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p))
+
+
+cors.P.BA5 <- cors.pre.BA5$data %>%
+  filter(ic50_Omicron_BA5>39 & ic50_Omicron_BA5<2561) %>%
+  rstatix::cor_test(data = ., vars2 ="ic50_Omicron_BA5",vars ="BA.5_final_nAbM", method = "spearman") %>%
+  mutate(p = paste0("_P_=", format(p,digits = 2, nsmall=4))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+#  mutate(p = str_replace(p, "x10superscript^-0", "x10superscript^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p))
+
+
+cors.P.BQ.1.1 <- cors.pre.BQ.1.1$data %>%
+  filter(ic50_BQ.1.1>39 & ic50_BQ.1.1<2561) %>%
+  rstatix::cor_test(data = ., vars2 ="ic50_BQ.1.1",vars ="BQ.1.1_final_nAbM", method = "spearman") %>%
+  mutate(p = paste0("_P_=", format(p,digits = 2, nsmall=4))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+#  mutate(p = str_replace(p, "x10superscript^-0", "x10superscript^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p))
+
+cors.P.XBB.1.5 <- cors.pre.XBB.1.5$data %>%
+  filter(ic50_XBB.1.5>39 & ic50_XBB.1.5<2561) %>%
+  rstatix::cor_test(data = ., vars2 ="ic50_XBB.1.5",vars ="XBB.1.5_final_nAbM", method = "spearman") %>%
+  mutate(p = paste0("_P_=", signif(p,digits = 2))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+#  mutate(p = str_replace(p, "x10superscript^-0", "x10superscript^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p))
+
+cors.P.XBB.1.16 <- cors.pre.XBB.1.16$data %>%
+  filter(ic50_XBB.1.16>39 & ic50_XBB.1.16<2561) %>%
+  rstatix::cor_test(data = ., vars2 ="ic50_XBB.1.16",vars ="XBB.1.16_final_nAbM", method = "spearman") %>%
+  mutate(p = paste0("_P_=", signif(p,digits = 2))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+#  mutate(p = str_replace(p, "x10superscript^-0", "x10superscript^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p))
+
+```
+
+```{r}
+#| label: extra_text_callouts
+#| fig-keep: none
+#| results: hide
+
+IgAvsIgG_FC <- panel.mIgAvsIgG$data %>%
+  pivot_wider(
+    id_cols = c(elig_study_id, cohort),
+    names_from = mucosal_Ig,
+              values_from = concentration,
+              names_glue = "{mucosal_Ig}_{.value}") %>%
+  mutate(FC = (IgA_concentration) / (IgG_concentration) ) %>%
+  group_by(cohort) %>%
+  summarise(fivenums = fivenum(FC)) %>%
+  mutate(fivenums = round(fivenums, digits = 1))
+
+IgAvsIgG_boostingPvalues <- panel.mIgAvsIgG.boosting$data %>%
+  group_by(mucosal_Ig) %>%
+  wilcox_test(concentration ~ cohort) %>%
+  mutate(label = round(p, digits = 3)) %>%
+  mutate(label = paste0(mucosal_Ig, " _P_=", label)) %>%
+  summarise(lab = paste0(label, collapse = "; ")) %>%
+  pull(lab)
+
+RBD.Pvalues <- panel.RBD$data %>%
+  group_by(N_res) %>%
+  wilcox_test(mucosal_RBD_Ig_titre ~ cohort) %>%
+  mutate(p = signif(p, digits = 2)) %>%
+  mutate(p = case_when(p < 0.001 ~ format(p, scientific = TRUE), 
+                   p > 0.001 ~ as.character(p))) %>%
+  mutate(p = str_replace(p, "e-0", "x10^-")) %>%
+  mutate(p = case_when(str_detect(p, "x10")==TRUE ~ paste0(p, "^"),
+                       str_detect(p, "x10")==FALSE ~ p)) %>%
+  arrange(desc(N_res)) %>%
+  mutate(label = paste0(N_res, " _P_=", p)) %>%
+  summarise(label = paste0(label, collapse = "; ")) %>%
+  pull(label)
+  
+
+
+```
+
+Mucosal vaccines that prevent SARS-CoV-2 infection may provide benefits beyond existing intramuscularly administered vaccines: through enhanced individual-level protection against disease, and through population-level reduction of viral carriage and transmission. Secreted neutralising antibodies are likely to be the crucial effectors for such mucosally-directed vaccines [@marking2023]. However, it is presently unclear to what extent intramuscular administration of Covid-19 vaccines enhances neutralising antibody titres in the mucosal compartment, nor the breadth of variants that are neutralised.
+
+In response to this, we now describe an adapted version of our high-throughput live-virus microneutralisation assay for mucosal samples and use it to determine the effect of fourth-dose intramuscular mRNA vaccination on neutralising antibodies against `r length(vocs.tested)` SARS-CoV-2 variants (Omicron `r paste(vocs.tested, collapse=", ")`) in paired serum and mucosal samples from `r paste(whole.study.n)` participants ([Table 1]{.underline}) [@carr2023] enrolled in the University College London Hospital and Francis Crick Institute Legacy study (NCT04750356) [@wall2021a; @wall2021b; @wu2022a; @carr2023; @townsley]. Mucosal samples were self-collected nasopharyngeal swabs into viral transport media (VTM). The Legacy study was approved by London Camden and Kings Cross Health Research Authority Research and Ethics committee (20/HRA/4717).
+
+We found that intramuscular administration of a bivalent (Ancestral + BA.1) mRNA vaccine enhances mucosal neutralising activity ([Figure A & Supplementary Figure 1]{.underline}), even when stratified by anti-nucleocapsid (anti-N) IgG negative and positive serostatus (previously un-infected or infected, respectively; [Figure B]{.underline}). This boost appears restricted to variants closely related to the administered Spikes, with significant enhancement for BA.1 irrespective of previous infection status (`r pp %>% filter(variant == "BA.1") %>% filter(Roche_N_result == "negative") %>% select(printout) %>% pull()` and `r pp %>% filter(variant == "BA.1") %>% filter(Roche_N_result == "positive") %>% select(printout) %>% pull()` in anti-N IgG negative and positive groups, respectively), and without significantly improving neutralising capacity against more recently circulating and antigenically distant variants in either group (BQ.1.1 `r pp %>% filter(variant == "BQ.1.1") %>% filter(Roche_N_result == "negative") %>% select(printout) %>% pull()` & `r pp %>% filter(variant == "BQ.1.1") %>% filter(Roche_N_result == "positive") %>% select(printout) %>% pull()`; XBB.1.5 `r pp %>% filter(variant == "XBB.1.5") %>% filter(Roche_N_result == "negative") %>% select(printout) %>% pull()` & `r pp %>% filter(variant == "XBB.1.5") %>% filter(Roche_N_result == "positive") %>% select(printout) %>% pull()`; XBB.1.16 `r pp %>% filter(variant == "XBB.1.16") %>% filter(Roche_N_result == "negative") %>% select(printout) %>% pull()` & `r pp %>% filter(variant == "XBB.1.16") %>% filter(Roche_N_result == "positive") %>% select(printout) %>% pull()`, respectively). Intriguingly, individuals with equivalent numbers of Spike exposures have similar levels of mucosal neutralising antibodies (4 exposures: \[anti-N IgG- after dose 4\] vs \[anti-N IgG+ before dose 4\]; `r paste0(Pvals.4exposures$variant, "  _P_=", signif(Pvals.4exposures$p,digits=2), collapse = "; ")`). Additionally, we found that mucosal binding RBD immunoglobulins were higher in the anti-N IgG- group, compared to those with prior infection, albeit with a small absolute increase (`r RBD.4exposures`). Together, the mucosal antibody compartment appears reminiscent of our serological findings [@carr2023a], where the number of Spike encounters was the critical determinant of neutralising titres.
+
+To dissect which antibody isotype might contribute to the boosting of mucosal neutralisation capacity, we measured the concentrations of total IgA and IgG in VTM samples ([Figure C]{.underline}). We found that IgA contributed much more to the mucosal immunoglobulin compartment than IgG (median fold-change \[IQR\]; pre `r IgAvsIgG_FC %>% filter(cohort == "pre") %>% summarise(label = paste0(fivenums[3]," [", fivenums[2],"-", fivenums[4], "]")) %>% pull(label)`; post `r IgAvsIgG_FC %>% filter(cohort == "post") %>% summarise(label = paste0(fivenums[3]," [", fivenums[2],"-", fivenums[4], "]")) %>% pull(label)`), and that neither isotype was boosted after vaccination ([Figure C,]{.underline} `r IgAvsIgG_boostingPvalues`). However, we did detect a post-vaccine increase in immunoglobulins that bound Ancestral RBD, present in individuals with and without prior infection ([Figure D]{.underline}, `r RBD.Pvalues`), using anti-N IgG serostatus to stratify prior infections. At a population-level, anti-Ancestral RBD antibody concentrations were positively correlated with variant-specific mucosal neutralisation ([Figure E]{.underline}). These Ancestral RBD binding: per variant neutralisation relationships weaken with more antigenically distinct variants, and in those without prior infection.
+
+Next, we determined if there are relationships between serum and mucosal neutralisation ([Supplementary]{.underline} [Figure 2]{.underline}). We find positive correlations between serum and mucosal samples before dose 4 for BA.1, BA.2, BA.5 and BQ.1.1 (`r cors.P.BA1$p`, `r cors.P.BA2$p`, `r cors.P.BA5$p`, `r cors.P.BQ.1.1$p` respectively) but not the more recent variants XBB.1.5 or XBB.1.16 (`r cors.P.XBB.1.5$p`, `r cors.P.XBB.1.16$p`). After dose 4, there are no significant correlations between serum and mucosal neutralisation suggesting these compartments are differentially boosted. Within the pre-dose 4 comparisons, stratified by the presence of anti-N IgG, the correlations are predominantly driven by the previously infected individuals ([Supplementary Figure 2A]{.underline}). Taken together, these observations suggest a weaker, relationship between serum and mucosal neutralising immunity in uninfected individuals.
+
+In summary, we have described a high-throughput method for live-virus microneutralisation using nasopharyngeal sampling into VTM and report several findings with broad application. Nasopharyngeal self-swabbing into VTM has advantages of being an easy and economical method of sampling the upper respiratory compartment, avoiding proprietary sampling strips and allowing repurposing of swabs used for viral testing and isolation. Importantly, parenteral vaccination boosts total mucosal neutralising capacity. Since this boost occurs in individuals both with and without prior mucosal challenge from infection, our data argue against a closed system of mucosal immunity only triggered by a mucosal challenge, such as infection [@tang2022]. Similarly, we identified a positive correlation between serum and mucosal neutralisation that was most apparent in previously-infected individuals, thus demonstrating that infection propagates antibody in both serum and mucosal compartments, and arguing against large mucosal-only locally produced antibody after infection [@liew2022]. Furthermore, similar levels of mucosal neutralisation after equivalent number of Spike exposures, whether via infection or vaccination, suggest that further boosting via intramuscular vaccines can enhance mucosal neutralising capacity further and potentially broaden the capacity as we have seen in the serum compartment. Identifying the sources for these mucosal neutralising antibodies will be the next steps (see supplementary discussion). Ongoing large cohort studies will offer the opportunity to dissect this further and provide insights relevant to the adjudication of the best mono- or multi-valent formulations for vaccines targeting mucosal immunity. Indeed, the VTM sampling approach described here enables large-scale sample collection and testing for mucosal neutralisation required for vaccine evaluation [@singh2023], and will allow further exploration of cross-compartment neutralisation `r paste("\u2014")` for both present and future-generation vaccines, including those directly targeting mucosal sites.
+
+{{< pagebreak >}}
+
+```{r}
+#| label: main-fig-plot
+#| fig-cap: !expr 'paste("**Mucosal neutralising immunity against SARS-CoV-2 variants**",
+#| "**(A)** Mucosal neutralising immunity against BA.1, BA.2, BA.5, BQ.1.1, XBB.1.5 and XBB.1.16 measured before and after dose 4",
+#| "**(B)** As in (A) stratified by prior infection using anti-nucleocapsid IgG",
+#| "**(C)** Mucosal concentrations of total IgA or IgG before and after dose 4",
+#| "**(D)** Mucosal concentrations of Ancestral RBD binding immunoglobulin before and after dose 4 stratified by anti-nucleocapsid IgG",
+#| "**(E)** Scatterplots of neutralising immunity against BA.1, BA.2, BA.5, BQ.1.1, XBB.1.5 and XBB.1.16 against mucosal concentrations of Ancestral RBD binding immunoglobulin before and after dose 4. Anti-N IgG negative or positive individuals are plotted as circles or triangles respectively, with trendlines in full or dashed lines respectively. Spearman\u0027s correlation coefficient and _P_ value are shown (bottom: anti-N IgG negative [grey] or top: positive [black])",
+#|  "In (A-D), _P_ values from 2-tailed unpaired Wilcoxon tests are shown. In (A, B and D), 25% neutralisation is marked with gray triangles, reflecting the distribution of VTM-only negative controls (Supplementary Figure 1).",
+#| sep="\\\n")'
+#| echo: false
+#| fig-height: 11.25
+#| fig-width: 8.5
+#| fig-scap: 'The plot'
+#| fig-env: mdframed
+
+
+tags <- element_text(family = "Arial", face = "bold",
+                                           size = 14)
+
+lay <- "
+aaaa
+aaaa
+aaaa
+bbbb
+bbbb
+bbbb
+bbbb
+ccdd
+ccdd
+eeee
+eeee
+eeee
+eeee
+"
+
+
+(panel.DOSE4 + 
+    ## add the numbers in each group ##
+    geom_text(data = panel.DOSE4.N,
+                        aes(label=n, col=NULL), 
+              size = 8/ggplot2::.pt) + 
+    theme(legend.position = "none")
+  
+  ) +
+
+(panel.DOSE4 + 
+    facet_grid(N_res ~ variant) + 
+   ## add the numbers in each group ##
+     geom_text(data = panel.DOSE4.N.by.antiN,
+                        aes(label=n, col=NULL), size = 8/ggplot2::.pt) +
+   theme(legend.position = "none",
+    strip.text.y = 
+  ggtext::element_markdown(angle = 0)) ) +
+
+  panel.mIgAvsIgG.boosting + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  panel.RBD + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+
+  (panel.nAbMvsRBD) +
+
+  
+  plot_layout(design = lay) + 
+  plot_annotation(tag_levels = "A")  & 
+  theme(plot.tag.position = c(0,0.95),
+                   plot.tag = tags)
+
+if(isTRUE(separate_fig)) {
+  ggsave(file = paste0("Mucosal_nAb_fig_", lubridate::today(), ".svg"),
+         height = 12,
+         width = 9)
+}
+
+```
+
+{{< pagebreak >}}
+
+# Table 1 {.unnumbered .unlisted}
+
+```{r}
+#| eval: false
+#| echo: true
+dat %>%
+  group_by(elig_study_id) %>%
+  arrange(desc(calendar_date)) %>%
+  slice_head() %>%
+  ungroup() %>%
+  select(
+    sex, age, dose_4, Roche_N_result
+    ) %>%
+  mutate(dose_4 = factor(dose_4)) %>%
+  mutate(cols = paste(dose_4)) %>% 
+  tbl_summary(by=cols,
+              missing= "ifany",
+              statistic = all_continuous() ~ "{median} [{p25}-{p75}]",
+              label = c(sex="Sex",dose_4="Bivalent fourth dose",
+                        age="Median age (years) [IQR]",
+                        Roche_N_result="anti-N IgG at latest visit"
+                        
+              )
+  ) %>% add_p(include = ! dose_4) %>%
+  as_gt(.)
+```
+
+# References {.unnumbered .unlisted}
+
+::: {#refs}
+:::
+
+{{< pagebreak >}}
+
+# Appendix {.unnumbered}
+
+## Supplementary Figure 1 {.unnumbered}
+
+```{r}
+#| label: sup-fig1-plot
+#| fig-cap: !expr 'paste("**Mucosal neutralisation assay validation**",
+#| "**(A)** Neutralisation for nine VTM-only control wells of a 96 well plate. Each control well is run in quadriplicate in 384 well assay plate, shown is the median per plate value. Neutralisation is expressed as a percentage of inhibition of viral infection",
+#| "**(B)** Neutralisation of nanobody control at serial dilutions decreasing A11 to F11. As in A, the median from four technical repeats per plate is shown.",
+#| "**(C)** Robust coefficient of variation, RCV[Q], from VTM samples. RCV[Q] was calculated across all of the 4 technical replicates is plotted against their median summarised mucosal neutralisation. RCV[Q] = 0.75 x IQR/median.",
+#| "**(D)** Mucosal neutralisation capacity, as in main figure A, scaled by mucosal IgA concentration. Scaling was performed as follows: (% neutralising activity)/log10[IgA], with IgA concentration expressed in mcg/mL.",
+#| "**(E)** Scaled Mucosal neutralisation capacity, as in D, restricted to paired pre and post swabs. In (D), _P_ values from 2-tailed unpaired Wilcoxon tests, and the number of mucosal swabs tested shown. In (E), _P_ values from 2-tailed Wilcoxon signed-rank (paired) tests, and the number of mucosal swabs tested shown.",
+#| sep="\\\n")'
+#| echo: false
+#| results: hide
+#| fig-height: 10.5
+#| fig-width: 8.5
+#| fig-scap: 'The plot'
+#| fig-env: mdframed
+
+# RCVq = 0.75 * (IQR / median)
+
+## plot RCVQ vs VTM.pct ##
+panel.RCVq <- raw_nAbM %>% 
+  mutate(variant = factor(variant, levels = strainOrder)) %>%
+  ggplot(aes(x = VTM.pct, y = RCVQ, col=variant)) + 
+    geom_point(alpha=0.4,
+               size=2,
+               shape=20) +
+  scale_y_continuous(trans="log10",
+                     breaks = 10^c(-2, -1, 0, 1, 2),
+                     minor_breaks = NULL,
+                     labels = c(0.01, 0.1, 1, 10, 100),
+                      name = bquote('RCV'[Q])) +
+  annotation_logticks(sides = "l", outside = FALSE,
+                      short = unit(.5,"mm"),
+                      mid = unit(1,"mm"),
+                      long = unit(1.5,"mm")) +
+  scale_colour_manual(drop=F, values = manual.pal) +
+  scale_x_continuous(expand = c(0.2, 1.2),
+                     name = "\nMucosal neutralisation [% neutralisation by VTM]") +
+  theme_bw() +
+  facet_grid(.~variant) +
+  theme(legend.position = 1)
+
+#------------------###
+# Negative controls
+panel.NEGctrls <- neg_raw_controls_nAbM %>%
+  select(well_id, strain,  median_neutralisation, RCVQ_neutralisation) %>%
+  mutate(variant = factor(strain, levels = strainOrder)) %>%
+  mutate(VTM.pct = median_neutralisation) %>%
+  rename(RCVQ = RCVQ_neutralisation) %>%
+  ggplot(aes(x = well_id, y = VTM.pct, col=variant)) + 
+  geom_point(alpha=0.4,
+             size=2,
+             shape=20) +
+  scale_colour_manual(drop=F, values = manual.pal) +
+  scale_y_continuous(expand = c(0.1, 1.1),
+                     limits = c(-50, 100),
+                     breaks = c(-50, 0,50,100),
+                     name = "% neutralisation") +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs(
+        x = "Well") +
+  theme_bw() +
+  facet_grid(.~variant) +
+  theme(legend.position = 1)
+
+# Positive controls
+
+panel.POSctrls <- pos_raw_controls_nAbM %>%
+  select(well_id, strain,  median_neutralisation, RCVQ_neutralisation) %>%
+  mutate(variant = factor(strain, levels = strainOrder)) %>%
+  mutate(VTM.pct = median_neutralisation) %>%
+  rename(RCVQ = RCVQ_neutralisation) %>%
+  ggplot(aes(x = well_id, y = VTM.pct, col=variant)) + 
+  geom_point(alpha=0.4,
+             size=2,
+             shape=20) +
+  scale_colour_manual(drop=F, values = manual.pal) +
+  scale_y_continuous(expand = c(0.1, 1.1),
+                     limits = c(-50, 100),
+                     breaks = c(-50, 0,50,100),
+                     name = "% neutralisation") +
+  geom_hline(yintercept = 0, linetype = 3) +
+  labs(
+    x = "Well") +
+  theme_bw() +
+  facet_grid(.~variant) +
+  theme(legend.position = 1)
+
+
+lay_ctrls <- "
+a
+b
+c
+d
+d
+e
+e
+"
+
+panel.NEGctrls +
+  panel.POSctrls +
+  panel.RCVq +
+    panel.DOSE4.IgAscaled +
+  panel.DOSE4.IgAscaledPAIRED +
+  plot_layout(design = lay_ctrls) +
+  plot_annotation(tag_levels = "A")  & 
+  theme(plot.tag.position = c(0,0.95),
+        plot.tag = tags,
+        strip.background = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+
+if(isTRUE(separate_fig)) {
+  ggsave(file = paste0("Mucosal_nAb_SF1_", lubridate::today(), ".svg"),
+         height = 12,
+         width = 9)
+}
+
+```
+
+{{< pagebreak >}}
+
+## Supplementary Figure 2 {.unnumbered}
+
+```{r}
+#| label: sup-fig2-plot
+#| fig-cap: !expr 'paste("**Comparison between mucosal and serological neutralising immunity**",
+#| "**(A and B)** Scatterplots between serum neutralisation and mucosal neutralisation against BA.1, BA.2, BA.5, BQ.1.1, XBB.1.5 and XBB.1.16 before **(A)** or after **(B)** dose 4. Serum anti-N IgG negative or positive serum samples are shown as circles or triangles respectively. Spearman\u0027s correlation coefficient and _P_ value are shown (top=whole study; bottom=anti-N IgG negative [grey] or positive [black], using only data within the quantitative range for serum [40-2560]).",
+#| "**(C)** As in Figure A, using paired mucosal samples pre- and post- fourth doses. _P_ values are from 2-tailed Wilcoxon signed-rank (paired) tests, and the number of mucosal swabs tested shown.",
+#| sep="\\\n")'
+#| echo: false
+#| fig-height: 7
+#| fig-width: 8.5
+#| fig-scap: 'The plot'
+#| fig-env: mdframed
+
+
+panel.DOSE4.paired <- panel.DOSE4$data %>%
+  group_by(elig_study_id) %>%
+  filter(n() == 6 * 2) %>%
+  ## plot ##
+  ggplot(aes(x=cohort, y=VTM.pct, col=variant)) +
+  # geom_line(aes(group=elig_study_id),position=pd, alpha=0.4) +
+  geom_point(aes(group=elig_study_id),position=pd,
+             alpha=0.4,
+             size=2,
+             shape=20) +
+  geom_violin( fill=NA) +
+  scale_colour_manual(drop=FALSE, values = manual.pal) +
+  facet_grid(.~variant) +
+  scale_y_continuous(#limits = c(0, 110),
+    expand = c(0.1, 1.1),
+    breaks = c(0,25, 50, 75, 100)) +
+  stat_compare_means(
+    family = "Helvetica Neue Thin",
+    comparisons = list(c(1,2)),
+    method = "wilcox",
+    paired=TRUE,
+    size = 8/ggplot2::.pt,
+    tip.length = 0.01,
+    label.y=101) +
+  stat_summary(geom="point", fun="median", shape = 5, col="black", size=2, stroke=1.5) +
+  theme_bw(base_family = "Arial") +
+  theme(strip.background = element_blank(),
+        axis.text.x = element_text(angle=45, hjust=1)) + 
+  labs(
+    y = "Mucosal neutralisation\n[% neutralisation by VTM]",
+    x = "Sampling relative to dose 4")  +
+  geom_text(label =  "\u25BA", 
+          size=8/ggplot2::.pt,
+          vjust = 0.5,
+          aes(y=25, x = 0.5, col=NULL),
+          col="grey40",
+          show.legend = F) +
+  geom_text(label = "\u25BA", 
+            size=8/ggplot2::.pt,
+            angle=180,
+            vjust = 0.5,
+            aes(y=25, x = 2.5, col=NULL),
+            col="grey40",
+            show.legend = F)
+
+## Add 'n' in each violin for BA.1 ##
+panel.DOSE4.paired.N <- panel.DOSE4.paired$data %>%
+  filter(variant == "BA.1") %>%
+  group_by(cohort) %>%
+  summarise(n_to_parse=n(),
+            variant=variant[1])
+
+panel.DOSE4.paired.N <- panel.DOSE4.paired.N %>%
+  mutate(VTM.pct = -7.5) %>%
+  mutate(n = paste0("n=", n_to_parse))
+
+panel.DOSE4.paired <- panel.DOSE4.paired + geom_text(data = panel.DOSE4.paired.N,
+                        aes(label=n, col=NULL), size = 8/ggplot2::.pt)
+## END - Add 'n' in each violin for BA.1 ##
+
+
+lay <- "
+aaaa
+bbbb
+cccc
+"
+
+panel.CORS.pre +
+panel.CORS.post +
+  panel.DOSE4.paired +
+  plot_layout(design = lay) +
+  plot_annotation(tag_levels = "A") & 
+  theme(plot.tag.position = c(0,0.95),
+                   plot.tag = tags,
+        legend.position = "none")
+
+
+if(isTRUE(separate_fig)) {
+  ggsave(file = paste0("Mucosal_nAb_SF2_", lubridate::today(), ".svg"),
+         height = 12,
+         width = 9)
+}
+
+
+```

@@ -1,0 +1,279 @@
+authors:
+  - name: Edward J Carr
+    affiliations:
+      - ref: ucl-dorm
+      - ref: crick
+    corresponding: false
+    email: edward.carr@crick.ac.uk
+    orcid: 
+    equal-contributor: false
+    
+  - name: Guilia Dowgier
+    affiliations:
+      - ref: csu
+    corresponding: false
+    orcid:
+    equal-contributor: true
+    
+  - name: David Greenwood
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid:
+    equal-contributor: true
+    
+  - name: Lou S Herman
+    affiliations:
+      - ref: csu
+    corresponding: false
+    orcid:
+    equal-contributor: true      
+    
+    
+  - name: Agnieszka Hobbs
+    affiliations:
+      - ref: csu
+    corresponding: false
+    orcid:
+    equal-contributor: true
+    
+  - name: Martina Ragno
+    affiliations:
+      - ref: csu
+    corresponding: false
+    orcid:
+    equal-contributor: true
+    
+  - name: Phoebe Stevenson-Leggett
+    affiliations:
+      - ref: csu
+    corresponding: false
+    orcid:
+    equal-contributor: false
+    
+  - name: Joshua Gahir
+    affiliations:
+      - ref: crick
+      - ref: brc
+    corresponding: false
+    orcid:
+    
+  - name: Hermaleigh Townsley
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid:
+    
+  - name: Ruth Harvey
+    affiliations:
+      - ref: wic
+    corresponding: false
+    orcid:
+  
+  - name: Chris Bailey
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid:
+    
+  - name: Ashley S Fowler
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid:
+    
+ 
+
+    
+  - name: Murad Miah
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid:
+    
+  - name: Callie Smith
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Mauro Miranda
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Philip Bawumia
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Harriet V Mears
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Lorin Adams
+    affiliations:
+      - ref: wic
+    corresponding: false
+    orcid:     
+    
+  - name: Emine Hatipoglu
+    affiliations:
+      - ref: crick
+      - ref: ucl
+    corresponding: false    
+    
+  - name: Nicola O'Reilly
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Scott Warchal
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Chelsea Sawyer
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Karen Ambrose
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+    
+  - name: Amy Strange
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid:  
+    
+  - name: Gavin Kelly
+    affiliations:
+      - ref: crick
+    corresponding: false
+    orcid: 
+
+  - name: Rupert Beale
+    affiliations:
+      - ref: ucl-dorm
+      - ref: crick
+      - ref: g2p
+    corresponding: false
+    orcid: 
+
+  - name: Padmasayee Papineni
+    affiliations:
+      - ref: lnwt
+    corresponding: false
+    orcid: 
+
+  - name: Tumena Corrah
+    affiliations:
+      - ref: lnwt
+    corresponding: false
+    orcid: 
+    
+  - name: Richard Gilson
+    affiliations:
+      - ref: cwmt
+      - ref: ucl
+    corresponding: false
+    orcid: 
+
+  - name: Steve Gamblin
+    affiliations:
+      - ref: crick
+    corresponding: false
+    
+  - name: George Kassiotis
+    affiliations:
+      - ref: crick
+      - ref: stm-id
+    corresponding: false
+    orcid: 
+
+  - name: Vincenzo Libri
+    affiliations:
+      - ref: brc 
+      - ref: ucl
+    corresponding: false
+    orcid: 
+
+    
+  - name: Bryan Williams
+    affiliations:
+      - ref: brc
+      - ref: ucl
+    corresponding: false
+
+  - name: Charles Swanton
+    affiliations:
+      - ref: crick
+      - ref: ucl
+    corresponding: false
+    
+  - name: Sonia Gandhi
+    affiliations:
+      - ref: crick
+      - ref: ucl
+    corresponding: false
+    
+  - name: David LV Bauer
+    affiliations:
+      - ref: crick
+      - ref: g2p
+    corresponding: false
+    equal-contributor: true
+
+  - name: Emma Wall
+    affiliations:
+      - ref: crick
+      - ref: brc
+    corresponding: false
+    email: emma.wall@crick.ac.uk
+    orcid: 
+    equal-contributor: true
+
+  - name: Mary Y Wu
+    affiliations:
+      - ref: crick
+      - ref: csu
+    corresponding: true
+    email: mary.wu@crick.ac.uk
+    orcid: 
+    equal-contributor: true
+
+affiliations:
+  - id: ucl-dorm
+    name: UCL Dept of Renal Medicine, Royal Free Hospital, Rowland Hill Street, London, NW3 2PF
+  - id: crick
+    name: The Francis Crick Institute, 1 Midland Road, London NW1 1AT
+  - id: csu
+    name: COVID Surveillance Unit, The Francis Crick Institute, 1 Midland Road, London, NW1 1AT
+  - id: wic
+    name: Worldwide Influenza Centre, The Francis Crick Institute, 1 Midland Road, London, NW1 1AT
+  - id: lnwt
+    name: London Northwest University Healthcare NHS Trust, London
+  - id: cwmt
+    name: Central and North West London NHS Foundation Trust, London
+  - id: stm-id
+    name: Department of Infectious Disease, St Mary's Hospital, Imperial College London, London
+  - id: brc
+    name: National Institute for Health Research (NIHR) University College London Hospitals (UCLH) Biomedical Research Centre and NIHR UCLH Clinical Research Facility, London
+  - id: ucl
+    name: University College London, London, UK
+  - id: g2p
+    name: Genotype-to-Phenotype UK National Virology Consortium (G2P-UK)
+
+filters:
+  - authors-block
